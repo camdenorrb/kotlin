@@ -147,7 +147,8 @@ class KotlinGradleFUSLogger : StartupActivity, DumbAware, Runnable {
                 BooleanMetrics.GRADLE_WORKER_API_USED,
                 BooleanMetrics.KOTLIN_OFFICIAL_CODESTYLE,
                 BooleanMetrics.KOTLIN_PROGRESSIVE_MODE,
-                BooleanMetrics.KOTLIN_KTS_USED
+                BooleanMetrics.KOTLIN_KTS_USED,
+                BooleanMetrics.CONFIGURATION_CACHE
             )
 
             container.log(

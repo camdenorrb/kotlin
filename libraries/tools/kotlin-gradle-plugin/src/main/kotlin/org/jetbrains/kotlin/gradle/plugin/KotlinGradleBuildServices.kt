@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskExecutionResults
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
 import org.jetbrains.kotlin.gradle.report.configureBuildReporter
+import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
 import org.jetbrains.kotlin.gradle.utils.relativeToRoot
 import org.jetbrains.kotlin.utils.addToStdlib.sumByLong
 import java.lang.management.ManagementFactory
@@ -47,7 +48,9 @@ internal class KotlinGradleBuildServices private constructor(
             }
 
             val services = KotlinGradleBuildServices(gradle)
-            gradle.addBuildListener(services)
+            if (!isConfigurationCacheAvailable(gradle)) {
+                gradle.addBuildListener(services)
+            }
             instance = services
             log.kotlinDebug(INIT_MESSAGE)
 

@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.utils.API
 import org.jetbrains.kotlin.gradle.utils.COMPILE
 import org.jetbrains.kotlin.gradle.utils.IMPLEMENTATION
 import org.jetbrains.kotlin.gradle.utils.RUNTIME
+import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
 import org.jetbrains.kotlin.statistics.BuildSessionLogger
 import org.jetbrains.kotlin.statistics.BuildSessionLogger.Companion.STATISTICS_FOLDER_NAME
 import org.jetbrains.kotlin.statistics.metrics.BooleanMetrics
@@ -95,6 +96,7 @@ internal abstract class KotlinBuildStatsService internal constructor() : BuildAd
                 } else {
                     val log = getLogger()
 
+                    val configurationCacheAvailable = isConfigurationCacheAvailable(gradle)
                     if (instance != null) {
                         log.debug("${KotlinBuildStatsService::class.java} is already instantiated. Current instance is $instance")
                     } else {
@@ -109,10 +111,17 @@ internal abstract class KotlinBuildStatsService internal constructor() : BuildAd
                             val newInstance = DefaultKotlinBuildStatsService(gradle, beanName)
                             instance = newInstance
                             log.debug("Instantiated ${KotlinBuildStatsService::class.java}: new instance $instance")
-                            mbs.registerMBean(StandardMBean(newInstance, KotlinBuildStatsMXBean::class.java), beanName)
+                            if (configurationCacheAvailable) {
+                                newInstance.projectsEvaluated(gradle)
+                                newInstance.buildFinished(null, gradle, null)
+                            } else {
+                                mbs.registerMBean(StandardMBean(newInstance, KotlinBuildStatsMXBean::class.java), beanName)
+                            }
                         }
                     }
-                    gradle.addBuildListener(instance)
+                    if (!configurationCacheAvailable) {
+                        gradle.addBuildListener(instance)
+                    }
                     instance
                 }
             }
@@ -269,6 +278,16 @@ internal class DefaultKotlinBuildStatsService internal constructor(
             gradle.rootProject.properties["kotlin.code.style"] == "official"
         ) // constants are saved in IDEA plugin and could not be accessed directly
 
+        fun buildSrcExists(project: Project) = File(project.projectDir, "buildSrc").exists()
+        if (buildSrcExists(gradle.rootProject)) {
+            sessionLogger.report(BooleanMetrics.BUILD_SRC_EXISTS, true)
+        }
+
+        if (isConfigurationCacheAvailable(gradle)) {
+            sessionLogger.report(BooleanMetrics.CONFIGURATION_CACHE, true)
+            return
+        }
+
         gradle.taskGraph.whenReady() { taskExecutionGraph ->
             val executedTaskNames = taskExecutionGraph.allTasks.map { it.name }.distinct()
             report(BooleanMetrics.COMPILATION_STARTED, executedTaskNames.contains("compileKotlin"))
@@ -276,10 +295,6 @@ internal class DefaultKotlinBuildStatsService internal constructor(
             report(BooleanMetrics.MAVEN_PUBLISH_EXECUTED, executedTaskNames.contains("install"))
         }
 
-        fun buildSrcExists(project: Project) = File(project.projectDir, "buildSrc").exists()
-        if (buildSrcExists(gradle.rootProject)) {
-            sessionLogger.report(BooleanMetrics.BUILD_SRC_EXISTS, true)
-        }
         val statisticOverhead = measureTimeMillis {
             gradle.allprojects { project ->
                 for (configuration in project.configurations) {
@@ -349,15 +364,13 @@ internal class DefaultKotlinBuildStatsService internal constructor(
         }
     }
 
-    @Synchronized
-    override fun buildFinished(result: BuildResult) {
+    fun buildFinished(action: String?, gradle: Gradle?, failure: Throwable?) {
         runSafe("${DefaultKotlinBuildStatsService::class.java}.buildFinished") {
             try {
                 try {
-                    val gradle = result.gradle
                     if (gradle != null) reportGlobalMetrics(gradle)
                 } finally {
-                    sessionLogger.finishBuildSession(result.action, result.failure)
+                    sessionLogger.finishBuildSession(action, failure)
                 }
             } finally {
                 val mbs: MBeanServer = ManagementFactory.getPlatformMBeanServer()
@@ -367,6 +380,11 @@ internal class DefaultKotlinBuildStatsService internal constructor(
                 instance = null
             }
         }
+    }
+
+    @Synchronized
+    override fun buildFinished(result: BuildResult) {
+        buildFinished(result.action, result.gradle, result.failure)
     }
 
     override fun report(metric: BooleanMetrics, value: Boolean, subprojectName: String?) {
