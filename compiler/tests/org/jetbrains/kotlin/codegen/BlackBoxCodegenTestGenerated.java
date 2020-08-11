@@ -13749,6 +13749,11 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
             runTest("compiler/testData/codegen/box/inference/lastExpressionOfLambdaWithNothingConstraint.kt");
         }
 
+        @TestMetadata("noCoercionToUnitForNullableLambdaReturnType.kt")
+        public void testNoCoercionToUnitForNullableLambdaReturnType() throws Exception {
+            runTest("compiler/testData/codegen/box/inference/noCoercionToUnitForNullableLambdaReturnType.kt");
+        }
+
         @TestMetadata("noNothingValueInsideSpecialCall.kt")
         public void testNoNothingValueInsideSpecialCall() throws Exception {
             runTest("compiler/testData/codegen/box/inference/noNothingValueInsideSpecialCall.kt");
