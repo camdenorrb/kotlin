@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.utils.API
 import org.jetbrains.kotlin.gradle.utils.COMPILE
 import org.jetbrains.kotlin.gradle.utils.IMPLEMENTATION
 import org.jetbrains.kotlin.gradle.utils.RUNTIME
+import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
 import org.jetbrains.kotlin.statistics.BuildSessionLogger
 import org.jetbrains.kotlin.statistics.BuildSessionLogger.Companion.STATISTICS_FOLDER_NAME
 import org.jetbrains.kotlin.statistics.metrics.BooleanMetrics
@@ -90,7 +91,7 @@ internal abstract class KotlinBuildStatsService internal constructor() : BuildAd
         internal fun getOrCreateInstance(gradle: Gradle): IStatisticsValuesConsumer? {
             return runSafe("${KotlinBuildStatsService::class.java}.getOrCreateInstance") {
                 statisticsIsEnabled = statisticsIsEnabled ?: checkStatisticsEnabled(gradle)
-                if (statisticsIsEnabled != true) {
+                if (statisticsIsEnabled != true || isConfigurationCacheAvailable(gradle)) {
                     null
                 } else {
                     val log = getLogger()
