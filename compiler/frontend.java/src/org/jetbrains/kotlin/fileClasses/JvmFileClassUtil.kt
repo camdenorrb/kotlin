@@ -111,10 +111,14 @@ internal class ParsedJvmFileClassAnnotations(val jvmName: String?, val jvmPackag
 val KtFile.javaFileFacadeFqName: FqName
     get() {
         return CachedValuesManager.getCachedValue(this) {
-            val facadeFqName =
-                if (isCompiled) packageFqName.child(Name.identifier(virtualFile.nameWithoutExtension))
-                else JvmFileClassUtil.getFileClassInfoNoResolve(this).facadeClassFqName
-
+            val facadeFqName= if (isCompiled) packageFqName.child(Name.identifier(virtualFile.nameWithoutExtension))
+            else {
+                val classInfoNoResolve = JvmFileClassUtil.getFileClassInfoNoResolve(this)
+                if (classInfoNoResolve is JvmMultifileClassPartInfo)
+                    classInfoNoResolve.fileClassFqName
+                else
+                    classInfoNoResolve.facadeClassFqName
+            }
             if (!Name.isValidIdentifier(facadeFqName.shortName().identifier)) {
                 LOG.error(
                     "An invalid fqName `$facadeFqName` with short name `${facadeFqName.shortName()}` is created for file `$name` " +
